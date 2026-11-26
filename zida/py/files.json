@@ -1,1 +1,1 @@
-["browser_entry.py", "decisions.py", "make_viewer.py", "mjcommon.py", "npnet.py", "reasons.py", "tactics.py", "reads.py", "review.py", "review_decisions.py", "rules.py", "scoring.py", "situation.py", "viewer_template.html", "zida_np.npz", "assets/tiles.png", "assets/table.png"]
+["browser_entry.py", "decisions.py", "make_viewer.py", "mjcommon.py", "npnet.py", "reasons.py", "tactics.py", "reads.py", "tenhou6.py", "review.py", "review_decisions.py", "rules.py", "scoring.py", "situation.py", "viewer_template.html", "zida_np.npz", "assets/tiles.png", "assets/table.png"]

@@ -17,6 +17,20 @@ class LogError(Exception):
     pass
 
 
+def prepare(xml):
+    """JSON(tenhou.net/6形式。雀魂の牌譜を変換したものなど)なら、天鳳のXMLに直す。"""
+    st = xml.lstrip()
+    if st[:1] in ("{", "["):
+        import tenhou6
+        try:
+            return tenhou6.convert(st)
+        except tenhou6.T6Error as e:
+            raise LogError(str(e))
+        except Exception:
+            raise LogError("牌譜(JSON)として読めませんでした。tenhou.net/6 形式の牌譜かどうか、確認してください。")
+    return xml
+
+
 def _validate(xml):
     if len(xml) > MAX_CHARS:
         raise LogError("牌譜が大きすぎます。")
@@ -44,7 +58,7 @@ def _validate(xml):
 
 def player_names(xml):
     """4人の名前を返す(入力欄の席の選択肢用)。読めなければエラーの文字列を投げる。"""
-    root = _validate(xml)
+    root = _validate(prepare(xml))
     for el in root:
         if el.tag == "UN" and all(f"n{i}" in el.attrib for i in range(4)):
             return [unquote(el.get(f"n{i}")) for i in range(4)]
@@ -60,6 +74,7 @@ def load_model():
 
 def review(xml, seat, title, year_hint=None, progress=None):
     """seat(0〜3)の視点でレビューを作り、完成したHTML(文字列)を返す。"""
+    xml = prepare(xml)
     _validate(xml)
     model, models = load_model()
     m = re.match(r"(\d{4})", year_hint or "")
