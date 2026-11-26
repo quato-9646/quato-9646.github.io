@@ -81,7 +81,7 @@ h3{display:flex;align-items:center;gap:10px;font-size:20px;margin:0 0 6px;line-h
 .tog{display:inline-flex;border:1.5px solid var(--strong);border-radius:6px;overflow:hidden}
 .tog button{background:none;border:0;padding:8px 14px;min-height:40px;cursor:pointer;font-size:14px}
 .tog button[aria-pressed=true]{background:var(--strong);color:var(--inv)}
-.tog.wrap{flex-wrap:wrap;display:grid;grid-template-columns:repeat(3,1fr)}.tog.wrap button{padding:8px 6px}
+.tog.wrap{flex-wrap:wrap;display:grid;grid-template-columns:repeat(4,1fr)}.tog.wrap button{padding:8px 6px}
 .combos.all{max-height:none}
 .strip-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .strip{position:relative;min-width:620px;height:300px}
@@ -313,15 +313,19 @@ function trioMatrix(p){
   out.set(a+'-'+b+'-'+c,s)}
  return out}
 function oddsOf(h){const e=edits[R.id]?.[h.num];return e?+e:(h.odds_real||h.odds)}
-const RATE={win:.80,place:.80,quin:.775,wide:.775,trio:.75};
-const BETN={win:'単勝',place:'複勝',quin:'馬連',wide:'ワイド',trio:'3連複'};
+const RATE={win:.80,place:.80,quin:.775,wide:.775,trio:.75,exacta:.75,trif:.725};
+const BETN={win:'単勝',place:'複勝',quin:'馬連',wide:'ワイド',trio:'3連複',exacta:'馬単',trif:'3連単'};
+const ORD=t=>t==='exacta'||t==='trif',KN=t=>t==='trio'||t==='trif'?3:2;
 function probs(p){
  p=norm(p);const n=p.length,q2=norm(p.map(x=>x**0.81)),q3=norm(p.map(x=>x**0.65));
  const trio=trioMatrix(p),place=new Array(n).fill(0),wide=new Map(),quin=new Map();
  for(const[k,v]of trio){const[a,b,c]=k.split('-').map(Number);place[a]+=v;place[b]+=v;place[c]+=v;
   for(const pr of[a+'-'+b,a+'-'+c,b+'-'+c])wide.set(pr,(wide.get(pr)||0)+v)}
  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++)quin.set(i+'-'+j,p[i]*q2[j]/(1-q2[i])+p[j]*q2[i]/(1-q2[j]));
- return{win:p,place,quin,wide,trio}}
+ const exacta=new Map(),trif=new Map();
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){if(i===j)continue;const e=p[i]*q2[j]/(1-q2[i]);exacta.set(i+'>'+j,e);
+  for(let k=0;k<n;k++){if(k===i||k===j)continue;const d=1-q3[i]-q3[j];if(d>0)trif.set(i+'>'+j+'>'+k,e*q3[k]/d)}}
+ return{win:p,place,quin,wide,trio,exacta,trif}}
 function compute(){
  const hs=R.horses;R._P=probs(hs.map(h=>h.p));R._M=probs(hs.map(h=>1/Math.max(oddsOf(h),1.0)));
  R._pm=R._P.trio;R._mm=R._M.trio;
@@ -332,9 +336,9 @@ function oddsFor(t,k){
  if(t==='win')return{o:oddsOf(hs[+k]),src:edits[R.id]?.[hs[+k].num]||hs[+k].odds_real?'実':'予'};
  if(t==='trio'&&R.trio_odds){const nk=k.split('-').map(i=>hs[+i].num).sort((x,y)=>x-y).join('-');if(R.trio_odds[nk])return{o:R.trio_odds[nk],src:'実'}}
  const M=R._M[t],m=Array.isArray(M)?M[+k]:M.get(k);
- return{o:Math.min(9999,Math.max(t==='place'?1.1:1.2,RATE[t]/m)),src:'予'}}
+ return{o:Math.min(t==='trif'?99999:9999,Math.max(t==='place'?1.1:1.2,RATE[t]/m)),src:'予'}}
 function trioOdds(k){return oddsFor('trio',k)}
-const numsOf=k=>String(k).split('-').map(i=>R.horses[+i].num).sort((a,b)=>a-b).join('-');
+const numsOf=k=>String(k).includes('>')?String(k).split('>').map(i=>R.horses[+i].num).join('→'):String(k).split('-').map(i=>R.horses[+i].num).sort((a,b)=>a-b).join('-');
 
 /* ---- 描画 ---- */
 async function load(){
@@ -641,20 +645,24 @@ function renderPlanBody(){
  <p class="note">軸は ${gateB(hs[pl.axis],1)} ${esc(hs[pl.axis].name)}（AI勝率上位3頭のうち3着内に来る確率がいちばん高い馬）。${pl.anas.length?`穴馬は ${pl.anas.map(i=>gateB(hs[i],1)+' '+esc(hs[i].name)).join('、')}（AIの評価が予想人気より高い、6番手以下の馬）。`:'今回は条件に合う穴馬がいません。'}</p>`;
 }
 
+const POOL={quin:20,wide:20,exacta:30,trio:30,trif:60},PICK={quin:8,wide:8,exacta:10,trio:10,trif:12};
 function combos(t){
- const c=calc,k=t==='trio'?3:2,idx=a=>[...a].sort((x,y)=>x-y).join('-');let keys=[];
+ const c=calc,k=KN(t),ord=ORD(t),idx=a=>ord?a.join('>'):[...a].sort((x,y)=>x-y).join('-');let keys=[];
+ const perm=a=>a.length<=1?[a]:a.flatMap((x,i)=>perm([...a.slice(0,i),...a.slice(i+1)]).map(r=>[x,...r]));
  if(c.mode==='nagashi'&&c.axis!=null){const ps=[...c.partners].filter(i=>i!==c.axis);
-  if(k===2)ps.forEach(a=>keys.push(idx([c.axis,a])));else for(let a=0;a<ps.length;a++)for(let b=a+1;b<ps.length;b++)keys.push(idx([c.axis,ps[a],ps[b]]))}
+  if(k===2)ps.forEach(a=>keys.push(idx([c.axis,a])));
+  else for(let a=0;a<ps.length;a++)for(let b=0;b<ps.length;b++){if(a===b||(!ord&&b<a))continue;keys.push(idx([c.axis,ps[a],ps[b]]))}}
  if(c.mode==='box'){const bs=[...c.box];
-  if(k===2){for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)keys.push(idx([bs[a],bs[b]]))}
-  else for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)for(let d=b+1;d<bs.length;d++)keys.push(idx([bs[a],bs[b],bs[d]]))}
- if(c.mode==='top'){const P=R._P[t],minp={trio:0.03,quin:0.05,wide:0.12}[t];keys=[...P.keys()].filter(x=>P.get(x)>=minp).map(x=>[x,P.get(x)*oddsFor(t,x).o]).sort((a,b)=>b[1]-a[1]).slice(0,k===3?10:8).map(x=>x[0])}
- return keys}
+  const sets=[];if(k===2){for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)sets.push([bs[a],bs[b]])}
+  else for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)for(let d=b+1;d<bs.length;d++)sets.push([bs[a],bs[b],bs[d]]);
+  sets.forEach(x=>(ord?perm(x):[x]).forEach(y=>keys.push(idx(y))))}
+ if(c.mode==='top'){const P=R._P[t];keys=[...P.keys()].sort((a,b)=>P.get(b)-P.get(a)).slice(0,POOL[t]).map(x=>[x,P.get(x)*oddsFor(t,x).o]).sort((a,b)=>b[1]-a[1]).slice(0,PICK[t]).map(x=>x[0])}
+ return [...new Set(keys)]}
 function renderCalc(){
  const hs=R.horses,c=calc,t=c.type;
  if(t==='plan'){
   $('#calc').innerHTML=`<h3>${icon('calc')}買い方と期待値</h3>
-  <div class="tog wrap" role="group" aria-label="券種">${['plan','win','place','quin','wide','trio'].map(x=>`<button data-t="${x}" aria-pressed="${t===x}">${x==='plan'?'おすすめ':BETN[x]}</button>`).join('')}</div>
+  <div class="tog wrap" role="group" aria-label="券種">${['plan','win','place','quin','exacta','wide','trio','trif'].map(x=>`<button data-t="${x}" aria-pressed="${t===x}">${x==='plan'?'おすすめ':BETN[x]}</button>`).join('')}</div>
   ${renderPlanBody()}
   <div class="row" style="margin-top:12px"><button class="btn" id="reset">${icon('reset')}オッズを元に戻す</button></div>
   <p class="warn">確率はAIの予想から、何度もレースを試算して出しています（毎回わずかに変わります）。「予」はオッズ発売前の推定です。的中や利益を保証するものではありません。</p>`;
@@ -672,11 +680,11 @@ function renderCalc(){
   rows=rows.filter(x=>x.p>=(t==='win'?0.04:0.15));note=`当たる確率が${t==='win'?'4':'15'}%以上で、期待値1.00以上の${BETN[t]}（${rows.filter(x=>x.ev>=1).length}頭）をすべて買った場合`;
  }else{
   sel=`<div class="tog" role="group" aria-label="買い方" style="margin-top:10px">
-   <button data-m="nagashi" aria-pressed="${c.mode==='nagashi'}">軸1頭流し</button><button data-m="box" aria-pressed="${c.mode==='box'}">ボックス</button><button data-m="top" aria-pressed="${c.mode==='top'}">確率の高い中で期待値上位${t==='trio'?10:8}点</button></div>
-  ${c.mode==='nagashi'?`<label>軸（1頭）</label><div class="chips">${ord.map(i=>chip(i,c.axis===i,'axis')).join('')}</div>
-   <label>相手（複数）</label><div class="chips">${ord.map(i=>chip(i,c.partners.has(i)&&i!==c.axis,'partner')).join('')}</div>`:''}
-  ${c.mode==='box'?`<label>選ぶ馬（${t==='trio'?3:2}頭以上）</label><div class="chips">${ord.map(i=>chip(i,c.box.has(i),'box')).join('')}</div>`:''}
-  ${c.mode==='top'?`<p class="note">当たる確率が一定以上（3連複3%・馬連5%・ワイド12%）の組み合わせだけから、期待値の高い順に選びます。めったに来ない大穴は入れません。</p>`:''}`;
+   <button data-m="nagashi" aria-pressed="${c.mode==='nagashi'}">${ORD(t)?'1着固定流し':'軸1頭流し'}</button><button data-m="box" aria-pressed="${c.mode==='box'}">ボックス</button><button data-m="top" aria-pressed="${c.mode==='top'}">期待値上位${PICK[t]}点</button></div>
+  ${c.mode==='nagashi'?`<label>${ORD(t)?'1着に固定する馬':'軸（1頭）'}</label><div class="chips">${ord.map(i=>chip(i,c.axis===i,'axis')).join('')}</div>
+   <label>${ORD(t)?(KN(t)===3?'2・3着の相手（複数）':'2着の相手（複数）'):'相手（複数）'}</label><div class="chips">${ord.map(i=>chip(i,c.partners.has(i)&&i!==c.axis,'partner')).join('')}</div>`:''}
+  ${c.mode==='box'?`<label>選ぶ馬（${KN(t)}頭以上）</label><div class="chips">${ord.map(i=>chip(i,c.box.has(i),'box')).join('')}</div>`:''}
+  ${c.mode==='top'?`<p class="note">当たる確率が高い順に上位${POOL[t]}通りを候補にして、その中から期待値の高い順に${PICK[t]}点選びます。めったに来ない大穴は入れません。</p>`:''}`;
   rows=combos(t).map(k=>{const o=oddsFor(t,k),p=pOf(t,k);return{k,p,o:o.o,src:o.src,ev:p*o.o}}).sort((a,b)=>b.ev-a.ev);
  }
  const buy=(t==='win'||t==='place')?rows.filter(x=>x.ev>=1):rows;
@@ -684,14 +692,14 @@ function renderCalc(){
  const inv=buy.length*stake,ret=buy.reduce((s,x)=>s+x.p*x.o*stake,0),hit=t==='place'?1-buy.reduce((s,x)=>s*(1-x.p),1):buy.reduce((s,x)=>s+x.p,0);
  const lab=x=>(t==='win'||t==='place')?`<span class="gate w${hs[+x.k].waku||0}">${esc(hs[+x.k].num)}</span> ${esc(hs[+x.k].name)}`:`<span class="n">${numsOf(x.k)}</span>`;
  $('#calc').innerHTML=`<h3>${icon('calc')}期待値の計算</h3>
- <div class="tog wrap" role="group" aria-label="券種">${['plan','win','place','quin','wide','trio'].map(x=>`<button data-t="${x}" aria-pressed="${t===x}">${x==='plan'?'おすすめ':BETN[x]}</button>`).join('')}</div>
+ <div class="tog wrap" role="group" aria-label="券種">${['plan','win','place','quin','exacta','wide','trio','trif'].map(x=>`<button data-t="${x}" aria-pressed="${t===x}">${x==='plan'?'おすすめ':BETN[x]}</button>`).join('')}</div>
  ${sel}
  <label for="st">1点あたりの金額</label><div class="row"><input id="st" type="number" min="100" step="100" value="${stake}"><span>円</span></div>
  <div class="out">${note?`<div class="cap">${note}</div>`:''}<div class="res">${inv?f2(ret/inv):'–'}</div><div class="cap">期待回収率（1.00で元が戻る計算）</div>
  <div class="k" style="margin-top:12px"><span>点数</span><span class="n">${buy.length}点</span><span>投資</span><span class="n">${yen(inv)}</span><span>的中確率${t==='place'?'（1頭以上）':''}</span><span class="n">${pct(hit)}</span><span>期待払戻</span><span class="n">${yen(ret)}</span></div></div>
- <div class="combos"><table><thead><tr><th>${t==='win'||t==='place'?'馬':'組み合わせ'}</th><th class="r">確率</th><th class="r">オッズ</th><th class="r">期待値</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${lab(x)}</td><td class="r n">${pct(x.p)}</td><td class="r n">${f1(x.o)}<small>${x.src==='実'?'':' 予'}</small></td><td class="r"><span class="ev ${x.ev>=1?'hi':''}">${f2(x.ev)}</span></td></tr>`).join('')||'<tr><td colspan="4">馬を選ぶと組み合わせが出ます</td></tr>'}</tbody></table></div>
+ <div class="combos all"><table><thead><tr><th>${t==='win'||t==='place'?'馬':'組み合わせ'}</th><th class="r">確率</th><th class="r">オッズ</th><th class="r">期待値</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${lab(x)}</td><td class="r n">${pct(x.p)}</td><td class="r n">${f1(x.o)}<small>${x.src==='実'?'':' 予'}</small></td><td class="r"><span class="ev ${x.ev>=1?'hi':''}">${f2(x.ev)}</span></td></tr>`).join('')||'<tr><td colspan="4">馬を選ぶと組み合わせが出ます</td></tr>'}</tbody></table></div>
  <div class="row" style="margin-top:12px"><button class="btn" id="reset">${icon('reset')}オッズを元に戻す</button></div>
- <p class="warn">「予」はオッズ発売前の推定です（払戻率 単勝・複勝80%、馬連・ワイド77.5%、3連複75%で計算）。${R.trio_odds?'3連複はJRAの発売中オッズを使っています。':''}期待値はAIの確率が正しいと仮定した計算で、過去の検証では回収率100%を超えていません。</p>`;
+ <p class="warn">「予」はオッズ発売前の推定です（払戻率 単勝・複勝80%、馬連・ワイド77.5%、馬単・3連複75%、3連単72.5%で計算）。${R.trio_odds?'3連複はJRAの発売中オッズを使っています。':''}期待値はAIの確率が正しいと仮定した計算で、過去の検証では回収率100%を超えていません。</p>`;
  const el=$('#calc');
  el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{c.type=b.dataset.t;renderCalc()});
  el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{c.mode=b.dataset.m;renderCalc()});
