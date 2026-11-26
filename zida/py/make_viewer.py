@@ -23,6 +23,7 @@ import reasons
 import review
 import review_decisions
 import situation
+import tactics
 from decisions import parse_decisions
 from mjcommon import build_meld_list, AKA_IDS, DEFAULT_YEAR, NAMES, DiscardNet, decode_meld, get_names, load, parse_game
 from rules import LEVEL_NAMES, shanten_text
@@ -148,6 +149,17 @@ def analyse(ev, me, r, model, pfm, rrows, crows):
     pf = review.push_fold(ev, probs, fold_p, pfm)
     if pf:
         comments.append({"h": f"押し引き({pf['verdict']})", "t": [review.explain({"actual": a, "pf": pf})]})
+    if ev["f"][0] == 0 and any(ev["f"][k] for k in range(1, 4)):       # コンボ理論は、場面が限られるときだけ出す
+        lv = [int(x[13][t]) - 1 for t in range(34) if x[0][t] > 0]
+        mode = None
+        if pf is None and lv and min(lv) > 2 and fold_p >= review.AI_FOLD:
+            mode = "beta"                                            # ベタオリ推奨だが安全牌がない
+        elif pf and review.AI_PUSH < pf["fold_p"] < review.AI_FOLD:
+            mode = "mawashi"                                         # 回し打ち推奨
+        if mode:
+            cl = tactics.combo_report(ev, a, probs, mode)
+            if cl:
+                comments.append({"h": "コンボ理論(" + ("ベタオリ推奨・安全牌なし" if mode == "beta" else "回し打ち推奨") + ")", "t": cl})
     st = review.style_advice(ev, probs, info)
     if st:
         comments.append({"h": "手組み", "t": [

@@ -130,15 +130,6 @@ def compare(ev, rec, act, style_potential, riichi_level=None):
             c = tactics.chance(ev, tt)
             if c and x[13][tt] - 1 >= 3:       # 無筋・半スジなど、危険な牌にだけ補足する
                 out.append(c)
-        ca, cr = tactics.combo_text(ev, act), tactics.combo_text(ev, rec)
-        pa = max(tactics.combo_points(ev, act, k)[0] for k in range(1, 4) if ev["f"][k]) if ca else 0
-        pr_ = max(tactics.combo_points(ev, rec, k)[0] for k in range(1, 4) if ev["f"][k]) if cr else 0
-        if ca and cr:
-            out.append(cr + " " + ca.replace("コンボ理論では、", ""))
-            if pa > pr_:
-                out.append(f"当たる組み合わせは{NAMES[act]}の方が{pa - pr_}ポイント多く、{NAMES[rec]}より放銃しやすい切り方です。")
-            elif pr_ > pa:
-                out.append(f"当たる組み合わせは{NAMES[rec]}の方が{pr_ - pa}ポイント多く、安全面だけならあなたの{NAMES[act]}の方が通りやすい牌です。")
     return out, kind
 
 
@@ -157,10 +148,4 @@ def explain_choice(ev, t, style_potential):
         c = tactics.chance(ev, t)
         if c and x[13][t] - 1 >= 3:
             out.append(c)
-        ct = tactics.combo_text(ev, t)
-        if ct:
-            out.append(ct)
-            rk = tactics.combo_rank(ev, t)
-            if rk and rk[1] >= 2:
-                out.append(f"手の数牌{rk[1]}種のうち、危険な順で{rk[0]}番目です(手牌の中の最大{rk[4]}ポイント・最小{rk[3]}ポイント)。")
     return out

@@ -129,3 +129,45 @@ def combo_rank(ev, t):
     score = {u: max(combo_points(ev, u, k)[0] for k in seats) for u in tiles}
     order = sorted(tiles, key=lambda u: -score[u])
     return order.index(t) + 1, len(tiles), score[t], min(score.values()), max(score.values())
+
+
+def combo_report(ev, a, probs, mode):
+    """コンボ理論の解説(ベタオリ推奨で安全牌がないとき / 回し打ち推奨のとき だけ使う)。
+    手牌の各牌のポイントを出し、向聴数を保てる牌の中で一番低い牌を勧める。"""
+    x, f = ev["x"], ev["f"]
+    seats = [k for k in range(1, 4) if f[k]]
+    if not seats:
+        return None
+    hand = [u for u in range(34) if x[0][u] > 0]
+    pts = {u: max(combo_points(ev, u, k)[0] for k in seats) for u in hand}
+    sh = {u: int(x[14][u]) - 1 for u in hand}
+    if a not in pts:
+        return None
+    lines = []
+    if mode == "beta":
+        lines.append("ベタオリが推奨ですが、手の中に現物・スジなどの安全牌がありません。"
+                     "こういうときは、当たりの組み合わせ(コンボ理論のポイント)が少ない牌から切ります。")
+        pool = hand
+    else:
+        lines.append("押しと降りの中間(回し打ち)の場面です。向聴数を保てる牌の中から、"
+                     "当たりの組み合わせ(コンボ理論のポイント)が少ない牌を選びます。")
+        best_sh = min(sh.values())
+        pool = [u for u in hand if sh[u] == best_sh]
+    pool = sorted(pool, key=lambda u: (pts[u], -probs[u]))
+    if not pool:
+        return None
+    show = pool[:5]
+    lines.append("ポイントの低い順: " + " / ".join(f"{NAMES[u]} {pts[u]}pt" for u in show) + "。")
+    pick = pool[0]
+    detail = combo_text(ev, pick)
+    if detail:
+        lines.append(detail)
+    if a == pick or pts[a] <= pts[pick]:
+        lines.append(f"あなたの{NAMES[a]}({pts[a]}ポイント)は、この基準でも低い方で、良い選択です。")
+    else:
+        lines.append(f"あなたの{NAMES[a]}は{pts[a]}ポイントで、{NAMES[pick]}({pts[pick]}ポイント)より"
+                     f"{pts[a] - pts[pick]}ポイント多く、当たりやすい切り方です。")
+    c = chance(ev, pick)
+    if c:
+        lines.append(c)
+    return lines
