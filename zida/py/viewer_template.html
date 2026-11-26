@@ -105,18 +105,15 @@ input[type=range]{flex:1;min-width:80px}
 .adbox{margin:10px 0;min-height:0;text-align:center;overflow:hidden}
 .adbox small{display:block;color:var(--mute);font-size:10px;text-align:left}
 @media (max-width:1099px){
-  .R{display:flex;flex-direction:column}
-  #resv{order:-4}#res{order:-3}#bars{order:-2}#handcard{order:-1}
   .wrap{padding:8px 10px}
   .lg{display:none}
   .card{padding:10px 10px}
 }
 @media (min-width:1100px){
-  .wrap{max-width:1380px;padding:12px 20px}
-  .cols{display:grid;grid-template-columns:minmax(0,820px) minmax(380px,1fr);gap:16px;align-items:start}
-  .R{position:sticky;top:8px;max-height:calc(100vh - 84px);overflow-y:auto;padding-right:4px}
-  #tw{margin-left:0}
+  .wrap{max-width:860px;padding:12px 20px}
 }
+.R{display:flex;flex-direction:column}.R>*{order:5}
+#handcard{order:1}#resv{order:2}#res{order:3}#cm{order:4}#bars{order:9}
 </style>
 </head>
 <body>
@@ -139,10 +136,10 @@ input[type=range]{flex:1;min-width:80px}
     <div class="hand" id="hand"></div>
   </div>
   <div class="card res" id="res"></div>
-  <div class="card bars" id="bars"><h3>AIの打牌確率(全候補)</h3><div id="barl"></div></div>
   <div class="card cm" id="cm"></div>
   <!--AD2-->
-  <p class="hint">コメントは牌譜から学習したAIと、向聴数・受け入れ・打点・安全度の計算から作っています。判断の目安であり、正解を保証するものではありません。(表示バージョン v33)</p>
+  <p class="hint">コメントは牌譜から学習したAIと、向聴数・受け入れ・打点・安全度の計算から作っています。判断の目安であり、正解を保証するものではありません。(表示バージョン v34)</p>
+  <div class="card bars" id="bars"><h3>AIの打牌確率(全候補)</h3><div id="barl"></div></div>
 </div></div>
 </div>
 <div class="nav">
@@ -228,7 +225,7 @@ function drawStage(st){
   dr.innerHTML="ドラ<br>";const row=document.createElement("div");row.style.cssText="display:flex;gap:2px;justify-content:flex-end";
   st.dora.forEach(t=>row.appendChild(sp(t,38)));dr.appendChild(row);stg.appendChild(dr);
 }
-function fit(){let w=Math.min($("tw").clientWidth,820);if(innerWidth>=1100)w=Math.max(520,Math.min(w,innerHeight-290));const s=w/1024;$("stage").style.transform=`scale(${s})`;$("tw").style.height=(1024*s)+"px";}
+function fit(){let w=Math.min($("tw").clientWidth,820);const s=w/1024;$("stage").style.transform=`scale(${s})`;$("tw").style.height=(1024*s)+"px";}
 function show(){
   const F=flat[V];
   if(!F.length){$("cm").innerHTML="<p class='broken'>この視点で評価できる打牌がありません。</p>";return;}
