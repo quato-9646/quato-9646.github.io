@@ -255,8 +255,10 @@ def _round(rd, out, is_last, data):
             if idx[c] < len(draws[c]) and isinstance(draws[c][idx[c]], str):
                 lt, bf, nm = _split(draws[c][idx[c]])
                 if lt in "cpm" and _src(c, 3 if lt == "c" else _rel(bf, len(nm))) == p:
-                    nxt = c
-                    break
+                    called = nm[0] if lt == "c" else nm[min(bf, len(nm) - 1)]
+                    if last_tile["id"] is not None and kind_of(called)[0] == last_tile["id"] // 4:   # 鳴いた牌が、いま切られた牌のときだけ
+                        nxt = c
+                        break
         p = nxt
     # --- 結果 ---
     sticks = kyotaku + riichi_n
