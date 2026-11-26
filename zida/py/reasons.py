@@ -4,6 +4,7 @@ import math
 
 from mjcommon import NAMES
 from rules import LEVEL_NAMES, shanten, shanten_text
+import tactics
 
 DORA_YAKU = (27, 28, 29, 30, 31, 32, 33)
 
@@ -125,6 +126,10 @@ def compare(ev, rec, act, style_potential, riichi_level=None):
             out.append(f"リーチ中なので安全度も差が出ます。{NAMES[rec]}は{LEVEL_NAMES[lr]}、{NAMES[act]}は{LEVEL_NAMES[la]}です。")
         elif lr > la:
             out.append(f"安全度では{NAMES[act]}({LEVEL_NAMES[la]})の方が{NAMES[rec]}({LEVEL_NAMES[lr]})より安全です。")
+        for tt in (rec, act):
+            c = tactics.chance(ev, tt)
+            if c and x[13][tt] - 1 >= 3:       # 無筋・半スジなど、危険な牌にだけ補足する
+                out.append(c)
     return out, kind
 
 
@@ -140,4 +145,7 @@ def explain_choice(ev, t, style_potential):
         out.append("残る打点の見込み: " + "・".join(keep) + "。")
     if x[13][t] > 0:
         out.append(f"リーチ中の相手に対して{NAMES[t]}は{LEVEL_NAMES[int(x[13][t]) - 1]}。")
+        c = tactics.chance(ev, t)
+        if c and x[13][t] - 1 >= 3:
+            out.append(c)
     return out
