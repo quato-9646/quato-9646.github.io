@@ -63,17 +63,18 @@ def _seen(x):
 
 def combo_points(ev, t, k):
     """リーチ者(相対席 k)に t を切ったときの当たりの組み合わせ数。
-    返り値: (合計, {"両面":n, "嵌張":n, "辺張":n})。現物は (0, {}) 。字牌・端牌も数える。"""
+    返り値: (合計, {"両面":n, "嵌張":n, "辺張":n, "シャンポン":n})。現物は (0, {})。単騎は数えない。"""
     x = ev["x"]
     if x[9 + k][t] > 0:
-        return 0, {}
-    if t >= 27:
         return 0, {}
     seen = _seen(x)
     rem = lambda u: max(0, 4 - seen[u])
     river = x[1 + k]
-    n, base = t % 9, t - t % 9
-    parts = {"両面": 0, "嵌張": 0, "辺張": 0}
+    parts = {"両面": 0, "嵌張": 0, "辺張": 0, "シャンポン": 0}
+    parts["シャンポン"] = rem(t) * (rem(t) - 1) // 2      # 手の中に t の対子を持つ組み合わせ
+    if t >= 27:
+        return parts["シャンポン"], {a: b for a, b in parts.items() if b}
+    n = t % 9
     # 下側: 手の中に (t-2, t-1) を持つ形
     if n >= 2:
         p = rem(t - 2) * rem(t - 1)
@@ -110,8 +111,8 @@ def combo_text(ev, t):
     nm = NAMES[t]
     if ev["x"][9 + k][t] > 0:
         return f"{nm}はリーチ者の現物で、当たりは0ポイントです。"
-    if t >= 27:
-        return None
+    if pts == 0:
+        return f"コンボ理論では、{nm}は当たる組み合わせが残っておらず、0ポイントです(単騎を除く)。"
     detail = "・".join(f"{a}{b}" for a, b in parts.items()) or "なし"
     return f"コンボ理論では、{nm}の当たりは{pts}ポイント({detail})です。"
 
@@ -122,7 +123,7 @@ def combo_rank(ev, t):
     seats = [k for k in range(1, 4) if f[k]]
     if not seats:
         return None
-    tiles = [u for u in range(34) if x[0][u] > 0 and u < 27]
+    tiles = [u for u in range(34) if x[0][u] > 0]
     if t not in tiles:
         return None
     score = {u: max(combo_points(ev, u, k)[0] for k in seats) for u in tiles}
