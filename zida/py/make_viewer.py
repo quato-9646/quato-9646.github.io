@@ -22,6 +22,7 @@ except ImportError:
 import reasons
 import review
 import review_decisions
+import reads
 import situation
 import tactics
 from decisions import parse_decisions
@@ -176,6 +177,9 @@ def analyse(ev, me, r, model, pfm, rrows, crows):
             if e2["label"] > 0 or cr["verdict"] != "問題なし" or cr["p_call_adj"] >= 0.3:
                 mine = review_decisions.CALL_NAMES[e2["label"]]
                 comments.append({"h": f"鳴き判断({cr['verdict']}) 自分: {mine}", "t": review_decisions.explain_call(cr)})
+    rl = reads.read_lines(ev, me, r.setdefault("_shown", set()))
+    if rl:
+        comments.append({"h": "他家の河の読み", "t": rl})
     comments.append({"h": "点数状況", "t": sit_lines[:3]})
     flag = (a != ai and probs[a] < 0.15) or bool(pf and pf["verdict"] != "問題なし") or \
         any(c_["h"].startswith(("リーチ判断(ダマ推奨", "リーチ判断(リーチ推奨", "鳴き判断(鳴")) for c_ in comments)
