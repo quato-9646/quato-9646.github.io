@@ -232,6 +232,7 @@ tr.off td{color:var(--sub)}.neg{color:var(--ink);text-decoration:underline;text-
 .frm{display:flex;flex-wrap:wrap;gap:8px 18px}.arr{color:var(--sub);font-size:12px;margin:0 1px}
 .combos.tall{max-height:420px!important}
 .combos .fin{flex-wrap:nowrap;gap:2px}.combos .fin .gate{width:22px;height:22px;font-size:13px}.combos td:first-child{white-space:nowrap}.combos td.r,.combos th.r{white-space:nowrap}.pt td,.pt th{padding:6px 3px}.combos td:first-child .fin{display:inline-flex}
+.tog.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}.tog.modes button{padding:8px 6px}
 /* 幅ごと */
 @media(max-width:1280px){.board{grid-template-columns:minmax(0,1fr)}.calc{position:static}}
 @media(max-width:980px){
@@ -310,7 +311,7 @@ const icon=(id,lab)=>`<svg class="i" ${lab?`role="img" aria-label="${lab}"`:'ari
 const STYLE=['逃げ','先行','差し','追込'];
 const WIN_RATE=0.80, TRIO_RATE=0.75;
 let heatT='quin', W=null, R=null, view='c4', sortKey='p', sortDir=-1, open=new Set();
-let calc={wAxis:null,wPart:new Set(),wBox:new Set(),noTori:true,total:1000,kind:'tanpuku',budget:1000,type:'plan',mode:'top',axis:null,partners:new Set(),box:new Set(),stake:100,winStake:100};
+let calc={f1:new Set(),f2:new Set(),f3:new Set(),wAxis:null,wPart:new Set(),wBox:new Set(),noTori:true,total:1000,kind:'tanpuku',budget:1000,type:'plan',mode:'top',axis:null,partners:new Set(),box:new Set(),stake:100,winStake:100};
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let edits=store.get('jp-odds',{});
 
@@ -376,6 +377,7 @@ function select(slug,scroll){
  calc.axis=null;calc.partners=new Set();calc.box=new Set();
  const top=[...R.horses].map((h,i)=>[h,i]).sort((a,b)=>b[0].p-a[0].p);
  if(top.length){calc.axis=top[0][1];top.slice(1,6).forEach(x=>calc.partners.add(x[1]));top.slice(0,5).forEach(x=>calc.box.add(x[1]))}
+ calc.f1=new Set(top.slice(0,1).map(x=>x[1]));calc.f2=new Set(top.slice(0,4).map(x=>x[1]));calc.f3=new Set(top.slice(0,6).map(x=>x[1]));
  calc.wAxis=top[0]?.[0].waku??null;calc.wPart=new Set(top.slice(1,5).map(x=>x[0].waku).filter(Boolean));calc.wBox=new Set(top.slice(0,4).map(x=>x[0].waku).filter(Boolean));
  if(calc.type==='wakuren'&&!R.drawn)calc.type='plan';
  document.querySelectorAll('.rbtn').forEach(b=>b.setAttribute('aria-current',b.dataset.slug===slug));
@@ -692,6 +694,8 @@ function combos(t){
  if(c.mode==='nagashi'&&c.axis!=null){const ps=[...c.partners].filter(i=>i!==c.axis);
   if(k===2)ps.forEach(a=>keys.push(idx([c.axis,a])));
   else for(let a=0;a<ps.length;a++)for(let b=0;b<ps.length;b++){if(a===b||(!ord&&b<a))continue;keys.push(idx([c.axis,ps[a],ps[b]]))}}
+ if(c.mode==='form'&&k===3){const A=[...c.f1],B=[...c.f2],C=[...c.f3];
+  for(const x of A)for(const y of B)for(const z of C){if(x===y||x===z||y===z)continue;keys.push(idx(ord?[x,y,z]:[x,y,z]))}}
  if(c.mode==='box'){const bs=[...c.box];
   const sets=[];if(k===2){for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)sets.push([bs[a],bs[b]])}
   else for(let a=0;a<bs.length;a++)for(let b=a+1;b<bs.length;b++)for(let d=b+1;d<bs.length;d++)sets.push([bs[a],bs[b],bs[d]]);
@@ -731,12 +735,13 @@ function renderCalc(){
   rows=ord.map(i=>{const o=oddsFor(t,i);return{k:String(i),p:pOf(t,i),o:o.o,src:o.src}}).map(x=>({...x,ev:x.p*x.o})).sort((a,b)=>b.ev-a.ev);
   rows=rows.filter(x=>x.p>=(t==='win'?0.04:0.15));note=`当たる確率が${t==='win'?'4':'15'}%以上で、期待値1.00以上の${BETN[t]}（${rows.filter(x=>x.ev>=1).length}頭）をすべて買った場合`;
  }else{
-  sel=`<div class="tog" role="group" aria-label="買い方" style="margin-top:10px">
-   <button data-m="top" aria-pressed="${c.mode==='top'}">当たりやすい順${PICK[t]}点</button><button data-m="nagashi" aria-pressed="${c.mode==='nagashi'}">${ORD(t)?'1着固定流し':'軸1頭流し'}</button><button data-m="box" aria-pressed="${c.mode==='box'}">ボックス</button></div>
+  sel=`<div class="tog modes" role="group" aria-label="買い方" style="margin-top:10px">
+   <button data-m="top" aria-pressed="${c.mode==='top'}">当たりやすい順${PICK[t]}点</button><button data-m="nagashi" aria-pressed="${c.mode==='nagashi'}">${ORD(t)?'1着固定流し':'軸1頭流し'}</button><button data-m="box" aria-pressed="${c.mode==='box'}">ボックス</button>${KN(t)===3?`<button data-m="form" aria-pressed="${c.mode==='form'}">フォーメーション</button>`:''}</div>
   ${t==='wakuren'?(()=>{const ws=[...new Set(hs.map(h=>h.waku))].filter(Boolean).sort((a,b)=>a-b);const wc=(w,on,g)=>`<button data-gw="${g}" data-w="${w}" aria-pressed="${on}" class="wchip"><span class="gate w${w}" style="width:24px;height:24px;font-size:14px">${w}</span></button>`;
    return c.mode==='nagashi'?`<label>軸の枠</label><div class="chips">${ws.map(w=>wc(w,c.wAxis===w,'axis')).join('')}</div><label>相手の枠（同じ枠を選ぶとゾロ目）</label><div class="chips">${ws.map(w=>wc(w,c.wPart.has(w),'partner')).join('')}</div>`:c.mode==='box'?`<label>選ぶ枠（2つ以上）</label><div class="chips">${ws.map(w=>wc(w,c.wBox.has(w),'box')).join('')}</div>`:''})():''}
   ${t!=='wakuren'&&c.mode==='nagashi'?`<label>${ORD(t)?'1着に固定する馬':'軸（1頭）'}</label><div class="chips">${ord.map(i=>chip(i,c.axis===i,'axis')).join('')}</div>
    <label>${ORD(t)?(KN(t)===3?'2・3着の相手（複数）':'2着の相手（複数）'):'相手（複数）'}</label><div class="chips">${ord.map(i=>chip(i,c.partners.has(i)&&i!==c.axis,'partner')).join('')}</div>`:''}
+  ${KN(t)===3&&c.mode==='form'?[['f1',ORD(t)?'1着':'1列目'],['f2',ORD(t)?'2着':'2列目'],['f3',ORD(t)?'3着':'3列目']].map(([g,l])=>`<label>${l}（複数可）</label><div class="chips">${ord.map(i=>chip(i,c[g].has(i),g)).join('')}</div>`).join('')+`<p class="note">${ORD(t)?'1着・2着・3着に置く馬をそれぞれ選びます。':'3列から1頭ずつ選んだ組み合わせを買います（同じ組み合わせは1点にまとめます）。'}</p>`:''}
   ${t!=='wakuren'&&c.mode==='box'?`<label>選ぶ馬（${KN(t)}頭以上）</label><div class="chips">${ord.map(i=>chip(i,c.box.has(i),'box')).join('')}</div>`:''}
   ${c.mode==='top'?`<p class="note">AIが当たる確率が高いと見た順に${PICK[t]}点選びます。配当が低すぎる組み合わせは買いません。</p>`:''}`;
   rows=combos(t).map(k=>{const o=oddsFor(t,k),p=pOf(t,k);return{k,p,o:o.o,src:o.src,ev:p*o.o}}).sort((a,b)=>b.p-a.p);
@@ -760,12 +765,12 @@ function renderCalc(){
  <div class="row" style="margin-top:12px"><button class="btn solid" id="refresh">${icon('reset')}最新のオッズに更新</button><button class="btn" id="reset">オッズを元に戻す</button></div><p class="note" id="rfmsg" aria-live="polite" style="margin:6px 0 0">${esc(oddsStamp())}</p>
  <p class="warn">「予」はオッズ発売前の推定です（払戻率 単勝・複勝80%、枠連・馬連・ワイド77.5%、馬単・3連複75%、3連単72.5%で計算）。${R.trio_odds?'3連複はJRAの発売中オッズを使っています。':''}期待値はAIの確率が正しいと仮定した計算で、過去の検証では回収率100%を超えていません。</p>`;
  const el=$('#calc');
- el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{c.type=b.dataset.t;renderCalc()});
+ el.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{c.type=b.dataset.t;if(c.mode==='form'&&KN(c.type)!==3)c.mode='top';renderCalc()});
  el.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{c.mode=b.dataset.m;renderCalc()});
  el.querySelectorAll('.chips button[data-gw]').forEach(b=>b.onclick=()=>{const w=+b.dataset.w,g=b.dataset.gw;
   if(g==='axis')c.wAxis=w;else if(g==='partner'){c.wPart.has(w)?c.wPart.delete(w):c.wPart.add(w)}else{c.wBox.has(w)?c.wBox.delete(w):c.wBox.add(w)}renderCalc()});
  el.querySelectorAll('.chips button[data-g]').forEach(b=>b.onclick=()=>{const i=+b.dataset.i,g=b.dataset.g;
-  if(g==='axis'){c.axis=i;c.partners.delete(i)}else if(g==='partner'){c.partners.has(i)?c.partners.delete(i):c.partners.add(i)}else{c.box.has(i)?c.box.delete(i):c.box.add(i)}renderCalc()});
+  if(g==='axis'){c.axis=i;c.partners.delete(i)}else if(g==='partner'){c.partners.has(i)?c.partners.delete(i):c.partners.add(i)}else if(g==='f1'||g==='f2'||g==='f3'){c[g].has(i)?c[g].delete(i):c[g].add(i)}else{c.box.has(i)?c.box.delete(i):c.box.add(i)}renderCalc()});
  const st=$('#st');if(st)st.onchange=()=>{const v=Math.max(100,Math.round((+st.value||100)/100)*100);if(t==='win'||t==='place')c.winStake=v;else c.stake=v;renderCalc()};
  const tt=$('#tt');if(tt)tt.onchange=()=>{c.total=Math.max(100,Math.round((+tt.value||100)/100)*100);renderCalc()};
  $('#reset').onclick=()=>{delete edits[R.id];store.set('jp-odds',edits);compute();renderTable();renderCalc();renderHeat()};
